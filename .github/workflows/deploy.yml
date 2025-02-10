@@ -33,10 +33,10 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -t rsa "$EC2_HOST" >> ~/.ssh/known_hosts
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key compose.yml nginx.conf EC2_USER@$EC2_HOST:/home/$EC2_USER
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key compose.yml nginx.conf $EC2_USER@$EC2_HOST:/home/$EC2_USER/app/
 
           # SSH into the EC2 instance and run deployment commands
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key EC2_USER@$EC2_HOST <<EOF
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key $EC2_USER@$EC2_HOST <<EOF
 
           # Check if Docker is installed
           if ! command -v docker &> /dev/null; then
@@ -72,6 +72,7 @@ jobs:
               docker rmi $(docker images -q)
           fi
 
+          cd /home/$EC2_USER/app
           docker compose up -d
 
           echo "Deployment completed successfully!"

@@ -63,13 +63,13 @@ jobs:
           # Stop and remove existing containers and images
           if [ "$(sudo docker ps -aq)" ]; then
               echo "Stopping and removing existing containers..."
-              sudo docker stop $(docker ps -aq)
-              sudo docker rm $(docker ps -aq)
+              sudo docker stop $(sudo docker ps -aq)
+              sudo docker rm $(sudo docker ps -aq)
           fi
 
           if [ "$(sudo docker images -q)" ]; then
               echo "Removing existing images..."
-              sudo docker rmi $(docker images -q)
+              sudo docker rmi $(sudo docker images -q)
           fi
 
           cd /home/$EC2_USER/app

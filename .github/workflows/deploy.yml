@@ -19,11 +19,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+      - name: Install SSH Client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
 
       - name: SSH into EC2 and Deploy
         env:
@@ -33,12 +30,14 @@ jobs:
         run: |
           # Set up SSH connection
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -t rsa "$EC2_HOST" >> ~/.ssh/known_hosts
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key compose.yml nginx.conf EC2_USER@$EC2_HOST:/home/$EC2_USER
 
           # SSH into the EC2 instance and run deployment commands
-          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-          set -e
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key EC2_USER@$EC2_HOST <<EOF
+
           # Check if Docker is installed
           if ! command -v docker &> /dev/null; then
               echo "Docker not found. Installing Docker..."
@@ -73,14 +72,6 @@ jobs:
               docker rmi $(docker images -q)
           fi
 
-          mkdir -p /home/$EC2_USER/app
-          # Copy the repository files to the EC2 instance
-          echo "Copying files to EC2 instance..."
-          scp -r ./compose.yml ./nginx.conf $EC2_USER@$EC2_HOST:/home/$EC2_USER/app
-
-          # Navigate to the app directory and run Docker Compose
-          echo "Deploying application..."
-          cd /home/$EC2_USER/app
           docker compose up -d
 
           echo "Deployment completed successfully!"

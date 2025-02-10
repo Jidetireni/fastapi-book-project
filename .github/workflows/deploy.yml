@@ -61,13 +61,13 @@ jobs:
           fi
 
           # Stop and remove existing containers and images
-          if [ "$(docker ps -aq)" ]; then
+          if [ "$(sudo docker ps -aq)" ]; then
               echo "Stopping and removing existing containers..."
               sudo docker stop $(docker ps -aq)
               sudo docker rm $(docker ps -aq)
           fi
 
-          if [ "$(docker images -q)" ]; then
+          if [ "$(sudo docker images -q)" ]; then
               echo "Removing existing images..."
               sudo docker rmi $(docker images -q)
           fi

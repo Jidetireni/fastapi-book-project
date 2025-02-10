@@ -1,0 +1,81 @@
+name: Deploy Application
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+
+      - name: SSH into EC2 and Deploy
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          # Set up SSH connection
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # SSH into the EC2 instance and run deployment commands
+          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
+          # Check if Docker is installed
+          if ! command -v docker &> /dev/null; then
+              echo "Docker not found. Installing Docker..."
+              sudo apt-get update
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+          else
+              echo "Docker is already installed."
+          fi
+
+          # Check if Docker Compose is installed
+          if ! command -v docker-compose &> /dev/null; then
+              echo "Docker Compose not found. Installing Docker Compose..."
+              sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*\d')" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+          else
+              echo "Docker Compose is already installed."
+          fi
+
+          # Stop and remove existing containers and images
+          if [ "$(docker ps -aq)" ]; then
+              echo "Stopping and removing existing containers..."
+              docker stop $(docker ps -aq)
+              docker rm $(docker ps -aq)
+          fi
+
+          if [ "$(docker images -q)" ]; then
+              echo "Removing existing images..."
+              docker rmi $(docker images -q)
+          fi
+
+          # Copy the repository files to the EC2 instance
+          echo "Copying files to EC2 instance..."
+          scp -r . $EC2_USER@$EC2_HOST:/home/$EC2_USER/app
+
+          # Navigate to the app directory and run Docker Compose
+          echo "Deploying application..."
+          cd /home/$EC2_USER/app
+          docker-compose up -d
+
+          echo "Deployment completed successfully!"
+          EOF

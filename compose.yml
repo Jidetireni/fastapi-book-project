@@ -1,6 +1,6 @@
 services:
   fastapi-app:
-    image: tireni/fastapi-book-project:main
+    build: .
     container_name: fastapi-app-container
     ports:
       - "8000:8000"

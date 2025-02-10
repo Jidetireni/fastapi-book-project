@@ -73,6 +73,7 @@ jobs:
               docker rmi $(docker images -q)
           fi
 
+          mkdir -p /home/$EC2_USER/app
           # Copy the repository files to the EC2 instance
           echo "Copying files to EC2 instance..."
           scp -r ./compose.yml ./nginx.conf $EC2_USER@$EC2_HOST:/home/$EC2_USER/app

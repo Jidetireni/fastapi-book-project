@@ -53,14 +53,13 @@ jobs:
               echo "Docker is already installed."
             fi
 
-            echo "Stopping and removing existing containers and images..."
-            sudo docker compose -f compose.yml down --rmi all || echo "No containers to clean up."
-
             if [ ! -d "fastapi-book-project" ]; then
               git clone https://github.com/Jidetireni/fastapi-book-project.git
             fi
             
             cd fastapi-book-project
+            echo "Stopping and removing existing containers and images..."
+            sudo docker compose -f compose.yml down --rmi all || echo "No containers to clean up."
             git pull origin main
             
             sudo docker compose up -d --build

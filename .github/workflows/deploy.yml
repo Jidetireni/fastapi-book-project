@@ -58,10 +58,10 @@ jobs:
             fi
             
             cd fastapi-book-project
-            echo "Stopping and removing existing containers and images..."
-            sudo docker compose -f compose.yml down --rmi all || echo "No containers to clean up."
             git pull origin main
             
+            echo "Stopping and removing existing containers and images..."
+            sudo docker compose -f compose.yml down --rmi all || echo "No containers to clean up."
             sudo docker compose up -d --build
 
             echo "Deployment completed successfully!"

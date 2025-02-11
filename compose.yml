@@ -1,7 +1,7 @@
 services:
   fastapi-app:
     build: .
-    container_name: fastapi-app-container
+    container_name: tireni/fastapi-book-project:main
     ports:
       - "8000:8000"
     restart: unless-stopped

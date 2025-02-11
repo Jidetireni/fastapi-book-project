@@ -7,12 +7,41 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2
+    name: Build, Push Docker Image & Deploy to EC2
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
     steps:
-
-      - name: Checkout Repository
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: tireni/fastapi-book-project
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Install SSH Client
         run: sudo apt-get update && sudo apt-get install -y openssh-client
@@ -28,25 +57,23 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -t rsa "$EC2_HOST" >> ~/.ssh/known_hosts
-        
+
           # SSH into the EC2 instance and run deployment commands
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key $EC2_USER@$EC2_HOST <<EOF
             # Check if Docker is installed
             if ! command -v docker &> /dev/null; then
               echo "Docker not found. Installing Docker..."
               sudo apt-get update
-              sudo apt-get install ca-certificates curl
+              sudo apt-get install -y ca-certificates curl
               sudo install -m 0755 -d /etc/apt/keyrings
               sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
               sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-              # Add the repository to Apt sources:
-              echo \
-              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-              $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+              echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+              \$(. /etc/os-release && echo \"${UBUNTU_CODENAME:-$VERSION_CODENAME}\") stable" | \
               sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
               sudo apt-get update
-              sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo systemctl start docker
               sudo systemctl enable docker
             else
@@ -56,10 +83,10 @@ jobs:
             if [ ! -d "fastapi-book-project" ]; then
               git clone https://github.com/Jidetireni/fastapi-book-project.git
             fi
-            
+
             cd fastapi-book-project
             git pull origin main
-            
+
             echo "Stopping and removing existing containers and images..."
             sudo docker compose -f compose.yml down --rmi all || echo "No containers to clean up."
             sudo docker compose up -d --build
